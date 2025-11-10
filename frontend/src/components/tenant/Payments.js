@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Download, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Payments = () => {
@@ -16,7 +16,7 @@ const Payments = () => {
   const fetchBills = async () => {
     try {
       const params = filter !== 'all' ? { status: filter } : {};
-      const response = await axios.get('/tenant/bills', { params });
+      const response = await api.get('/api/tenant/bills', { params });
       setBills(response.data);
     } catch (error) {
       toast.error('Failed to fetch bills');
@@ -32,7 +32,7 @@ const Payments = () => {
     
     try {
       // Create payment order
-      const orderResponse = await axios.post('/payment/create-order', { billId });
+      const orderResponse = await api.post('/api/payment/create-order', { billId });
       const { orderId, amount, currency, keyId } = orderResponse.data;
 
       // Check if Razorpay is loaded
@@ -53,7 +53,7 @@ const Payments = () => {
         handler: async (response) => {
           try {
             // Verify payment
-            const verifyResponse = await axios.post('/payment/verify', {
+            const verifyResponse = await api.post('/api/payment/verify', {
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,

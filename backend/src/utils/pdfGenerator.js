@@ -1,107 +1,84 @@
 const PDFDocument = require('pdfkit');
 
-const generateInvoicePDF = async (billData) => {
+const generateTenantPDF = (tenant) => {
   return new Promise((resolve, reject) => {
     try {
-      const doc = new PDFDocument({ margin: 50 });
-      const buffers = [];
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks = [];
 
-      doc.on('data', buffers.push.bind(buffers));
-      doc.on('end', () => {
-        const pdfData = Buffer.concat(buffers);
-        resolve(pdfData);
-      });
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
 
-      // Header with Branding
-      doc.fontSize(28).font('Helvetica-Bold').fillColor('#2563eb').text('NESTIFY', 50, 50);
-      doc.fontSize(14).fillColor('#6b7280').text('Hostel Management System', 50, 85);
-      doc.fontSize(20).fillColor('#1f2937').text('INVOICE', 400, 50);
+      // Nestify Header with Branding
+      doc.rect(0, 0, doc.page.width, 80).fill('#2563eb');
+      doc.fontSize(28).fillColor('white').text('NESTIFY', 50, 25, { align: 'left' });
+      doc.fontSize(12).text('Hostel Management System', 50, 55);
+      doc.fillColor('black');
       
-      // Hostel Details
-      doc.fontSize(16).font('Helvetica-Bold').fillColor('#1f2937').text(billData.admins?.hostel_name || 'Nestify Hostel', 50, 130);
-      doc.fontSize(10).font('Helvetica').fillColor('#6b7280').text(billData.admins?.hostel_address || 'Hostel Address', 50, 150);
-      doc.text(`Phone: ${billData.admins?.phone || '+91 98765 43210'}`, 50, 165);
-      doc.text(`Email: ${billData.admins?.email || 'info@nestify.com'}`, 50, 180);
-
-      // Invoice Details Box
-      doc.rect(400, 130, 150, 80).stroke();
-      doc.fontSize(10).font('Helvetica-Bold').fillColor('#1f2937').text('Invoice Number:', 410, 140);
-      doc.font('Helvetica').text(billData.bill_number, 410, 155);
-      doc.font('Helvetica-Bold').text('Invoice Date:', 410, 175);
-      doc.font('Helvetica').text(new Date(billData.created_at).toLocaleDateString('en-IN'), 410, 190);
-
-      // Tenant Details
-      doc.fontSize(14).font('Helvetica-Bold').fillColor('#1f2937').text('Bill To:', 50, 240);
-      doc.fontSize(12).font('Helvetica').text(`Name: ${billData.tenants?.name || 'Tenant Name'}`, 50, 260);
-      doc.text(`Room Number: ${billData.rooms?.room_number || 'N/A'}`, 50, 280);
-      doc.text(`Student ID: ${billData.tenants?.registration_id || 'N/A'}`, 50, 300);
-      doc.text(`Contact: ${billData.tenants?.phone || 'N/A'}`, 50, 320);
-
-      // Charges Table
-      const tableTop = 370;
-      doc.rect(50, tableTop, 500, 25).fillAndStroke('#f3f4f6', '#e5e7eb');
-      doc.fontSize(11).font('Helvetica-Bold').fillColor('#1f2937');
-      doc.text('S.No', 60, tableTop + 8);
-      doc.text('Description', 100, tableTop + 8);
-      doc.text('Quantity', 300, tableTop + 8);
-      doc.text('Rate (₹)', 380, tableTop + 8);
-      doc.text('Amount (₹)', 460, tableTop + 8);
-
-      let yPosition = tableTop + 35;
-      let sno = 1;
-      const charges = [
-        { desc: 'Room Rent', amount: billData.room_rent, qty: '1 Month', rate: billData.room_rent },
-        { desc: 'Electricity Charges', amount: billData.electricity_charges, qty: '1 Month', rate: billData.electricity_charges },
-        { desc: 'Water Charges', amount: billData.water_charges, qty: '1 Month', rate: billData.water_charges },
-        { desc: 'Maintenance Charges', amount: billData.maintenance_charges, qty: '1 Month', rate: billData.maintenance_charges },
-        { desc: 'Internet/Wi-Fi Charges', amount: billData.internet_charges, qty: '1 Month', rate: billData.internet_charges },
-        { desc: 'Other Charges', amount: billData.other_charges, qty: '1 Month', rate: billData.other_charges }
-      ];
-
-      doc.fontSize(10).font('Helvetica').fillColor('#374151');
-      charges.forEach((charge) => {
-        if (parseFloat(charge.amount || 0) > 0) {
-          doc.text(sno.toString(), 60, yPosition);
-          doc.text(charge.desc, 100, yPosition);
-          doc.text(charge.qty, 300, yPosition);
-          doc.text(parseFloat(charge.rate).toFixed(2), 380, yPosition);
-          doc.text(parseFloat(charge.amount).toFixed(2), 460, yPosition);
-          yPosition += 20;
-          sno++;
+      // Document Title
+      doc.moveDown(2);
+      doc.fontSize(22).fillColor('#1f2937').text('TENANT INFORMATION REPORT', { align: 'center' });
+      doc.moveDown();
+      
+      // Hostel Info Box
+      if (tenant.admins?.hostel_name) {
+        doc.rect(50, doc.y, doc.page.width - 100, 60).stroke('#e5e7eb');
+        doc.fontSize(16).fillColor('#374151').text(tenant.admins.hostel_name, 60, doc.y + 15, { align: 'center' });
+        if (tenant.admins.hostel_address) {
+          doc.fontSize(11).fillColor('#6b7280').text(tenant.admins.hostel_address, 60, doc.y + 10, { align: 'center' });
         }
-      });
-
-      // Total Section
-      doc.rect(350, yPosition + 10, 200, 25).fillAndStroke('#2563eb', '#2563eb');
-      doc.fontSize(12).font('Helvetica-Bold').fillColor('white');
-      doc.text('Total Amount (₹)', 360, yPosition + 18);
-      doc.text(parseFloat(billData.total_amount).toFixed(2), 460, yPosition + 18);
-
-      // Payment Summary
-      if (billData.transactions) {
-        const transaction = billData.transactions;
-        const paymentMode = transaction.payment_method === 'razorpay' ? 'UPI/Card/Net Banking' : 
-                           transaction.payment_method === 'cash' ? 'Cash' : 
-                           transaction.payment_method || 'UPI/Card/Net Banking';
-        
-        doc.fontSize(14).font('Helvetica-Bold').fillColor('#1f2937').text('Payment Summary', 50, yPosition + 60);
-        doc.fontSize(10).font('Helvetica').fillColor('#374151');
-        doc.text(`Payment Mode: ${paymentMode}`, 50, yPosition + 85);
-        doc.text(`Transaction ID: ${transaction.razorpay_payment_id || transaction.transaction_reference || 'CASH-' + billData.bill_number}`, 50, yPosition + 100);
-        doc.text(`Payment Date: ${new Date(transaction.transaction_date || billData.created_at).toLocaleDateString('en-IN')}`, 50, yPosition + 115);
-        doc.text('Payment Status: Paid ✅', 50, yPosition + 130);
+        doc.moveDown(2);
       }
 
-      // Remarks
-      doc.fontSize(12).font('Helvetica-Bold').fillColor('#1f2937').text('Remarks / Notes', 50, yPosition + 170);
-      doc.fontSize(9).font('Helvetica').fillColor('#6b7280');
-      doc.text('• Kindly retain this invoice for your records.', 50, yPosition + 190);
-      doc.text('• Rent must be paid on or before the 5th of every month.', 50, yPosition + 205);
-      doc.text('• Contact the warden for billing or maintenance issues.', 50, yPosition + 220);
+      // Personal Information Section
+      doc.fontSize(16).fillColor('#1f2937').text('Personal Information', { underline: true });
+      doc.moveDown(0.5);
+      
+      const personalInfo = [
+        ['Registration ID', tenant.registration_id],
+        ['Full Name', tenant.name],
+        ['Email Address', tenant.email],
+        ['Phone Number', tenant.phone],
+        ['Alternate Phone', tenant.alt_phone || 'N/A'],
+        ['Address', tenant.address || 'N/A'],
+        ['Admission Date', new Date(tenant.admission_date).toLocaleDateString('en-IN')],
+        ['Status', tenant.is_active ? 'Active' : 'Inactive']
+      ];
+
+      personalInfo.forEach(([label, value]) => {
+        doc.fontSize(11).fillColor('#374151').text(`${label}:`, 50, doc.y, { continued: true, width: 150 });
+        doc.fillColor('#1f2937').text(value, 200);
+        doc.moveDown(0.3);
+      });
+      
+      doc.moveDown();
+
+      // Room Information Section
+      if (tenant.rooms) {
+        doc.fontSize(16).fillColor('#1f2937').text('Room Information', { underline: true });
+        doc.moveDown(0.5);
+        
+        const roomInfo = [
+          ['Room Number', tenant.rooms.room_number],
+          ['Room Type', tenant.rooms.room_type],
+          ['Location', tenant.rooms.location || 'N/A'],
+          ['Monthly Rent', `₹${tenant.rooms.rent_amount}`]
+        ];
+
+        roomInfo.forEach(([label, value]) => {
+          doc.fontSize(11).fillColor('#374151').text(`${label}:`, 50, doc.y, { continued: true, width: 150 });
+          doc.fillColor('#1f2937').text(value, 200);
+          doc.moveDown(0.3);
+        });
+      }
 
       // Footer
-      doc.fontSize(8).fillColor('#9ca3af').text('Generated by Nestify Hostel Management System © 2025', 50, 750);
-      doc.text('Visit: www.nestify.in', 400, 750);
+      doc.moveDown(2);
+      doc.rect(50, doc.page.height - 100, doc.page.width - 100, 1).fill('#e5e7eb');
+      doc.fontSize(10).fillColor('#6b7280')
+         .text(`Generated by Nestify Hostel Management System`, 50, doc.page.height - 80)
+         .text(`Report Date: ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 65)
+         .text('This is a computer-generated document.', 50, doc.page.height - 50);
 
       doc.end();
     } catch (error) {
@@ -110,4 +87,106 @@ const generateInvoicePDF = async (billData) => {
   });
 };
 
-module.exports = { generateInvoicePDF };
+const generateInvoicePDF = (bill) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks = [];
+
+      doc.on('data', chunk => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+      // Nestify Header with Branding
+      doc.rect(0, 0, doc.page.width, 80).fill('#2563eb');
+      doc.fontSize(28).fillColor('white').text('NESTIFY', 50, 25, { align: 'left' });
+      doc.fontSize(12).text('Hostel Management System', 50, 55);
+      doc.fillColor('black');
+      
+      // Invoice Title
+      doc.moveDown(2);
+      doc.fontSize(22).fillColor('#1f2937').text('PAYMENT INVOICE', { align: 'center' });
+      doc.moveDown();
+
+      // Bill Information
+      doc.fontSize(16).fillColor('#1f2937').text('Bill Information', { underline: true });
+      doc.moveDown(0.5);
+      
+      const billInfo = [
+        ['Bill Number', bill.bill_number],
+        ['Billing Period', `${bill.billing_month}/${bill.billing_year}`],
+        ['Tenant Name', bill.tenants?.name || 'N/A'],
+        ['Room Number', bill.rooms?.room_number || 'N/A']
+      ];
+
+      billInfo.forEach(([label, value]) => {
+        doc.fontSize(11).fillColor('#374151').text(`${label}:`, 50, doc.y, { continued: true, width: 150 });
+        doc.fillColor('#1f2937').text(value, 200);
+        doc.moveDown(0.3);
+      });
+      
+      doc.moveDown();
+
+      // Charges Table
+      doc.fontSize(16).fillColor('#1f2937').text('Charges Breakdown', { underline: true });
+      doc.moveDown(0.5);
+      
+      const charges = [
+        ['Room Rent', bill.room_rent],
+        ['Electricity Charges', bill.electricity_charges],
+        ['Water Charges', bill.water_charges],
+        ['Maintenance Charges', bill.maintenance_charges],
+        ['Internet Charges', bill.internet_charges],
+        ['Other Charges', bill.other_charges]
+      ].filter(([, amount]) => parseFloat(amount) > 0);
+
+      charges.forEach(([label, amount]) => {
+        doc.fontSize(11).fillColor('#374151').text(label, 50, doc.y, { continued: true, width: 300 });
+        doc.fillColor('#1f2937').text(`₹${parseFloat(amount).toFixed(2)}`, 400, doc.y, { align: 'right' });
+        doc.moveDown(0.3);
+      });
+      
+      // Total
+      doc.moveDown(0.5);
+      doc.rect(50, doc.y, doc.page.width - 100, 1).fill('#e5e7eb');
+      doc.moveDown(0.5);
+      doc.fontSize(14).fillColor('#1f2937').text('Total Amount:', 50, doc.y, { continued: true, width: 300 });
+      doc.fontSize(16).fillColor('#059669').text(`₹${parseFloat(bill.total_amount).toFixed(2)}`, 400, doc.y, { align: 'right' });
+
+      // Payment Information
+      if (bill.transactions) {
+        doc.moveDown(2);
+        doc.fontSize(16).fillColor('#1f2937').text('Payment Information', { underline: true });
+        doc.moveDown(0.5);
+        
+        const paymentInfo = [
+          ['Payment Method', bill.transactions.payment_method],
+          ['Payment Date', new Date(bill.transactions.transaction_date).toLocaleString('en-IN')],
+          ['Transaction ID', bill.transactions.razorpay_payment_id || 'N/A']
+        ];
+
+        paymentInfo.forEach(([label, value]) => {
+          doc.fontSize(11).fillColor('#374151').text(`${label}:`, 50, doc.y, { continued: true, width: 150 });
+          doc.fillColor('#1f2937').text(value, 200);
+          doc.moveDown(0.3);
+        });
+      }
+
+      // Footer
+      doc.moveDown(2);
+      doc.rect(50, doc.page.height - 100, doc.page.width - 100, 1).fill('#e5e7eb');
+      doc.fontSize(10).fillColor('#6b7280')
+         .text(`Generated by Nestify Hostel Management System`, 50, doc.page.height - 80)
+         .text(`Invoice Date: ${new Date().toLocaleString('en-IN')}`, 50, doc.page.height - 65)
+         .text('Thank you for your payment!', 50, doc.page.height - 50);
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+module.exports = {
+  generateTenantPDF,
+  generateInvoicePDF
+};

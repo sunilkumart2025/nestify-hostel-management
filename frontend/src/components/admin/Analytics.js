@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Download, Calendar, DollarSign, Users, Home } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Analytics = () => {
@@ -17,7 +17,7 @@ const Analytics = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await axios.get('/admin/analytics', { params: dateRange });
+      const response = await api.get('/api/admin/analytics', { params: dateRange });
       setAnalytics(response.data);
     } catch (error) {
       toast.error('Failed to fetch analytics');
@@ -28,7 +28,7 @@ const Analytics = () => {
 
   const downloadReport = async () => {
     try {
-      const response = await axios.get('/admin/reports/payment', {
+      const response = await api.get('/api/admin/reports/payment', {
         params: dateRange,
         responseType: 'blob'
       });

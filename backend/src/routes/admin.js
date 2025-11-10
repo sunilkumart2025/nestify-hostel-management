@@ -250,7 +250,15 @@ router.put('/tenants/:id/room', async (req, res) => {
     }
 
     const { id } = req.params;
-    const { roomId } = req.body;
+    const { roomId, rentAmount } = req.body;
+
+    // Get current tenant room to update occupancy
+    const { data: currentTenant } = await supabase
+      .from('tenants')
+      .select('room_id')
+      .eq('id', id)
+      .eq('admin_id', req.admin.id)
+      .single();
 
     // Update tenant's room
     const { error: tenantError } = await supabase
@@ -261,11 +269,22 @@ router.put('/tenants/:id/room', async (req, res) => {
 
     if (tenantError) throw tenantError;
 
-    // Update room occupancy
-    if (roomId) {
+    // Update previous room occupancy
+    if (currentTenant?.room_id) {
       await supabase
         .from('rooms')
-        .update({ is_occupied: true })
+        .update({ is_occupied: false })
+        .eq('id', currentTenant.room_id);
+    }
+
+    // Update new room occupancy and rent
+    if (roomId) {
+      const updateData = { is_occupied: true };
+      if (rentAmount) updateData.rent_amount = rentAmount;
+      
+      await supabase
+        .from('rooms')
+        .update(updateData)
         .eq('id', roomId);
     }
 
@@ -273,6 +292,73 @@ router.put('/tenants/:id/room', async (req, res) => {
   } catch (error) {
     logError('Assign room error', error);
     res.status(500).json({ error: 'Failed to assign room' });
+  }
+});
+
+// Get tenant PDF
+router.get('/tenants/:id/pdf', async (req, res) => {
+  try {
+    if (isDemoMode) {
+      return res.status(501).json({ 
+        error: 'PDF generation not available in demo mode. Database connection required.' 
+      });
+    }
+
+    const { id } = req.params;
+    const adminId = req.admin.id;
+    const { generateTenantPDF } = require('../utils/pdfGenerator');
+
+    // Get tenant details with room and admin info
+    const { data: tenant, error } = await supabase
+      .from('tenants')
+      .select(`
+        id, registration_id, name, email, phone, alt_phone, address,
+        admission_date, is_active, created_at, room_id
+      `)
+      .eq('id', id)
+      .eq('admin_id', adminId)
+      .single();
+
+    if (error || !tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Get room info if tenant has a room
+    let roomInfo = null;
+    if (tenant.room_id) {
+      const { data: room } = await supabase
+        .from('rooms')
+        .select('room_number, room_type, location, rent_amount')
+        .eq('id', tenant.room_id)
+        .single();
+      roomInfo = room;
+    }
+
+    // Get admin info
+    const { data: admin } = await supabase
+      .from('admins')
+      .select('hostel_name, hostel_address')
+      .eq('id', adminId)
+      .single();
+
+    // Combine data
+    const tenantWithDetails = {
+      ...tenant,
+      rooms: roomInfo,
+      admins: admin
+    };
+
+    // Generate PDF
+    const pdfBuffer = await generateTenantPDF(tenantWithDetails);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="tenant-${tenant.registration_id}.pdf"`);
+    res.send(pdfBuffer);
+
+    logSuccess('Tenant PDF downloaded', { tenantId: id, adminId });
+  } catch (error) {
+    logError('Tenant PDF generation error', error);
+    res.status(500).json({ error: 'Failed to generate tenant PDF' });
   }
 });
 
@@ -478,6 +564,42 @@ router.post('/send-profile-otp', async (req, res) => {
   } catch (error) {
     logError('Send profile OTP error', error);
     res.status(500).json({ error: 'Failed to send OTP' });
+  }
+});
+
+// Get tenant details
+router.get('/tenants/:id', async (req, res) => {
+  try {
+    if (isDemoMode) {
+      return res.json({ 
+        id: req.params.id, 
+        name: 'Demo Tenant', 
+        email: 'tenant@demo.com',
+        registration_id: 'REG001',
+        rooms: { room_number: 'A-101', rent_amount: 5000 }
+      });
+    }
+
+    const { id } = req.params;
+    const { data: tenant, error } = await supabase
+      .from('tenants')
+      .select(`
+        id, registration_id, name, email, phone, alt_phone, address,
+        admission_date, is_active,
+        rooms(id, room_number, room_type, location, rent_amount)
+      `)
+      .eq('id', id)
+      .eq('admin_id', req.admin.id)
+      .single();
+
+    if (error || !tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.json(tenant);
+  } catch (error) {
+    logError('Get tenant details error', error);
+    res.status(500).json({ error: 'Failed to fetch tenant details' });
   }
 });
 

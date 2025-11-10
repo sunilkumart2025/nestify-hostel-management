@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Key, CreditCard, Mail } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -16,7 +16,7 @@ const Profile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get('/admin/profile');
+      const response = await api.get('/api/admin/profile');
       setProfile(response.data);
     } catch (error) {
       toast.error('Failed to fetch profile');
@@ -27,7 +27,7 @@ const Profile = () => {
 
   const regenerateStayKey = async () => {
     try {
-      const response = await axios.post('/admin/regenerate-stay-key');
+      const response = await api.post('/api/admin/regenerate-stay-key');
       setProfile({...profile, stay_key: response.data.stayKey});
       toast.success('StayKey regenerated successfully');
     } catch (error) {
@@ -37,7 +37,7 @@ const Profile = () => {
 
   const sendOTP = async () => {
     try {
-      await axios.post('/admin/send-profile-otp');
+      await api.post('/api/admin/send-profile-otp');
       setOtpSent(true);
       toast.success('OTP sent to your email');
     } catch (error) {
@@ -48,7 +48,7 @@ const Profile = () => {
   const updatePaymentSettings = async (e) => {
     e.preventDefault();
     try {
-      await axios.put('/admin/payment-settings', paymentData);
+      await api.put('/api/admin/payment-settings', paymentData);
       toast.success('Payment settings updated successfully');
       setShowPaymentModal(false);
       setPaymentData({ razorpayKeyId: '', razorpayKeySecret: '', otp: '' });

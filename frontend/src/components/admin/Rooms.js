@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Rooms = () => {
@@ -18,7 +18,7 @@ const Rooms = () => {
 
   const fetchRooms = async () => {
     try {
-      const response = await axios.get('/admin/rooms');
+      const response = await api.get('/api/admin/rooms');
       setRooms(response.data);
     } catch (error) {
       toast.error('Failed to fetch rooms');
@@ -31,10 +31,10 @@ const Rooms = () => {
     e.preventDefault();
     try {
       if (editingRoom) {
-        await axios.put(`/admin/rooms/${editingRoom.id}`, formData);
+        await api.put(`/api/admin/rooms/${editingRoom.id}`, formData);
         toast.success('Room updated successfully');
       } else {
-        await axios.post('/admin/rooms', formData);
+        await api.post('/api/admin/rooms', formData);
         toast.success('Room added successfully');
       }
       setShowModal(false);
@@ -61,7 +61,7 @@ const Rooms = () => {
   const handleDelete = async (roomId) => {
     if (window.confirm('Are you sure you want to delete this room?')) {
       try {
-        await axios.delete(`/admin/rooms/${roomId}`);
+        await api.delete(`/api/admin/rooms/${roomId}`);
         toast.success('Room deleted successfully');
         fetchRooms();
       } catch (error) {

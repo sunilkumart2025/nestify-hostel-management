@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Building2, CreditCard, TrendingUp, Clock, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { LoadingSpinner, SkeletonCard } from '../ui/LoadingSpinner';
 import useResponsive from '../../hooks/useResponsive';
-import axios from 'axios';
+import api from '../../utils/api';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -15,7 +15,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get('/admin/dashboard');
+      const response = await api.get('/api/admin/dashboard');
       setDashboardData(response.data);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

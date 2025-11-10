@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nestify-v1';
+const CACHE_NAME = 'nestify-v2';
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',

@@ -4,8 +4,49 @@ const jwt = require('jsonwebtoken');
 const { supabase } = require('../../config/supabase');
 const { sendOTP, verifyOTP } = require('../email/otpService');
 const { generateStayKey, generateRegistrationId } = require('../utils/generators');
-const { validateAdminSignup, validateLogin } = require('../middleware/validation');
+const Joi = require('joi');
+
+// Simple validation functions
+const validateAdminSignup = (req, res, next) => {
+  const schema = Joi.object({
+    name: Joi.string().min(2).max(100).required(),
+    email: Joi.string().email().required(),
+    phone: Joi.string().pattern(/^[+]?[0-9]{10,15}$/).required(),
+    altPhone: Joi.string().pattern(/^[+]?[0-9]{10,15}$/).optional().allow(''),
+    address: Joi.string().max(500).optional().allow(''),
+    hostelName: Joi.string().min(2).max(200).required(),
+    hostelAddress: Joi.string().min(5).max(500).required(),
+    password: Joi.string().min(6).max(100).required(),
+    nestKey: Joi.string().required()
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ 
+      error: 'Validation failed', 
+      details: error.details[0].message 
+    });
+  }
+  next();
+};
+
+const validateLogin = (req, res, next) => {
+  const { email, password } = req.body;
+  
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+  
+  if (!email.includes('@')) {
+    return res.status(400).json({ error: 'Invalid email format' });
+  }
+  
+  next();
+};
 const { logInfo, logError, logSuccess, logWarning } = require('../utils/logger');
+const { checkBruteForce, recordFailedAttempt, recordSuccess } = require('../middleware/bruteForceSimple');
+const { createSession } = require('../middleware/advancedAuth');
+const { checkGlobalCapacity, createGlobalSession, logGlobalLoginAttempt } = require('../middleware/globalSecurity');
 
 const router = express.Router();
 
@@ -162,7 +203,7 @@ router.post('/tenant/signup', async (req, res) => {
 });
 
 // Admin Login
-router.post('/admin/login', validateLogin, async (req, res) => {
+router.post('/admin/login', checkGlobalCapacity, checkBruteForce, async (req, res) => {
   try {
     if (isDemoMode) {
       return res.json({
@@ -194,9 +235,16 @@ router.post('/admin/login', validateLogin, async (req, res) => {
 
     const isValidPassword = await bcrypt.compare(password, admin.password_hash);
     if (!isValidPassword) {
+      recordFailedAttempt(req.bruteForceKey);
+      await logGlobalLoginAttempt(email, 'admin', false, admin.id, req, 'Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    recordSuccess(req.bruteForceKey);
+    createSession(admin.id, 'admin', req.get('User-Agent'), req.ip);
+    await createGlobalSession(admin.id, 'admin', email, admin.id, req);
+    await logGlobalLoginAttempt(email, 'admin', true, admin.id, req);
+    
     const token = jwt.sign(
       { id: admin.id, email: admin.email, role: 'admin' },
       process.env.JWT_SECRET,
@@ -219,7 +267,7 @@ router.post('/admin/login', validateLogin, async (req, res) => {
 });
 
 // Tenant Login
-router.post('/tenant/login', validateLogin, async (req, res) => {
+router.post('/tenant/login', checkGlobalCapacity, checkBruteForce, async (req, res) => {
   try {
     if (isDemoMode) {
       return res.json({
@@ -251,9 +299,16 @@ router.post('/tenant/login', validateLogin, async (req, res) => {
 
     const isValidPassword = await bcrypt.compare(password, tenant.password_hash);
     if (!isValidPassword) {
+      recordFailedAttempt(req.bruteForceKey);
+      await logGlobalLoginAttempt(email, 'tenant', false, tenant.admin_id, req, 'Invalid password');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    recordSuccess(req.bruteForceKey);
+    createSession(tenant.id, 'tenant', req.get('User-Agent'), req.ip);
+    await createGlobalSession(tenant.id, 'tenant', email, tenant.admin_id, req);
+    await logGlobalLoginAttempt(email, 'tenant', true, tenant.admin_id, req);
+    
     const token = jwt.sign(
       { id: tenant.id, email: tenant.email, role: 'tenant', adminId: tenant.admin_id },
       process.env.JWT_SECRET,

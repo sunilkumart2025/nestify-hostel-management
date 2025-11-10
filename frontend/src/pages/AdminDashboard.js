@@ -8,6 +8,7 @@ import Billing from '../components/admin/Billing';
 import Analytics from '../components/admin/Analytics';
 import Profile from '../components/admin/Profile';
 
+
 const AdminDashboard = () => {
   return (
     <AdminLayout>
@@ -17,6 +18,7 @@ const AdminDashboard = () => {
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/analytics" element={<Analytics />} />
+
         <Route path="/profile" element={<Profile />} />
       </Routes>
     </AdminLayout>

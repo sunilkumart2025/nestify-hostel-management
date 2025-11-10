@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User, Home, Calendar } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Profile = () => {
@@ -17,7 +17,7 @@ const Profile = () => {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get('/tenant/profile');
+      const response = await api.get('/api/tenant/profile');
       setProfile(response.data);
       setFormData({
         phone: response.data.phone || '',
@@ -34,7 +34,7 @@ const Profile = () => {
   const handleUpdate = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.put('/tenant/profile', formData);
+      const response = await api.put('/api/tenant/profile', formData);
       setProfile(response.data);
       setEditing(false);
       toast.success('Profile updated successfully');

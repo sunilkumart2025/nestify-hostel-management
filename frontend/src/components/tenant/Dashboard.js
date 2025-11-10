@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Home, Clock, CheckCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
@@ -12,7 +12,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const response = await axios.get('/tenant/dashboard');
+      const response = await api.get('/api/tenant/dashboard');
       setDashboardData(response.data);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);

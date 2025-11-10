@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Download, Edit, Eye, MoreVertical, Trash2, CreditCard } from 'lucide-react';
-import axios from 'axios';
+import api from '../../utils/api';
 import toast from 'react-hot-toast';
 
 const Billing = () => {
@@ -25,7 +25,7 @@ const Billing = () => {
 
   const fetchBills = async () => {
     try {
-      const response = await axios.get('/admin/bills');
+      const response = await api.get('/api/admin/bills');
       setBills(response.data);
     } catch (error) {
       toast.error('Failed to fetch bills');
@@ -36,7 +36,7 @@ const Billing = () => {
 
   const fetchTenants = async () => {
     try {
-      const response = await axios.get('/admin/tenants');
+      const response = await api.get('/api/admin/tenants');
       setTenants(response.data);
     } catch (error) {
       console.error('Failed to fetch tenants');
@@ -46,7 +46,7 @@ const Billing = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/admin/bills', formData);
+      await api.post('/api/admin/bills', formData);
       toast.success('Bill created successfully');
       setShowModal(false);
       setFormData({
@@ -97,7 +97,7 @@ const Billing = () => {
   const deleteBill = async (bill) => {
     if (window.confirm(`Delete bill ${bill.bill_number}?`)) {
       try {
-        await axios.delete(`/admin/bills/${bill.id}`);
+        await api.delete(`/api/admin/bills/${bill.id}`);
         toast.success('Bill deleted successfully');
         fetchBills();
       } catch (error) {
@@ -110,7 +110,7 @@ const Billing = () => {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.put(`/admin/bills/${selectedBill.id}`, formData);
+      await api.put(`/api/admin/bills/${selectedBill.id}`, formData);
       toast.success('Bill updated successfully');
       setShowEditModal(false);
       fetchBills();
@@ -123,7 +123,7 @@ const Billing = () => {
     e.preventDefault();
     const formData = new FormData(e.target);
     try {
-      await axios.put(`/admin/bills/${selectedBill.id}/mark-paid`, {
+      await api.put(`/api/admin/bills/${selectedBill.id}/mark-paid`, {
         paymentMethod: formData.get('paymentMethod'),
         transactionReference: formData.get('transactionReference')
       });
@@ -137,7 +137,7 @@ const Billing = () => {
 
   const downloadBillReport = async (bill) => {
     try {
-      const response = await axios.get(`/admin/invoice/${bill.id}`, {
+      const response = await api.get(`/api/admin/invoice/${bill.id}`, {
         responseType: 'blob'
       });
       
